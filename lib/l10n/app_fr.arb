@@ -1,0 +1,15 @@
+{
+    "gameTitle": "Jeu WordLink",
+    "mainMenu": "Menu Principal",
+    "startGame": "Commencer le Jeu",
+    "incorrect": "Mot incorrect ! Essayez encore.",
+    "secondsLeft" : "secondes restantes",
+    "guessedWords" : "Mots Devinés",
+    "nextWord" : "Entrez le mot suivant",
+    "submit" : "Soumettre",
+    "gameOver" : "Fin de la partie",
+    "timesUp": "Le temps est écoulé !",
+    "ok": "OK",
+    "congratulations" : "Félicitations",
+    "youWon": "Vous avez gagné le jeu !"
+}
