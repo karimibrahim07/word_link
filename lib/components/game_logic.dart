@@ -7,18 +7,16 @@ import 'package:flutter/services.dart';
 import 'package:word_link/widgets/build_word_row.dart';
 
 class WordLinkGameLogic {
-  late String startingWord; // Mot de départ
-  late String endingWord; // Mot de fin
-  late String currentWord; // Mot actuel
+  late String startingWord = ''; // Mot de départ
+  late String endingWord = ''; // Mot de fin
+  late String currentWord = ''; // Mot actuel
   final Set<String> guessedWords = {}; // Mots devinés
   late List<String> dictionary; // Dictionnaire
   late List<Widget> wordList = []; // Liste des mots
 
   // Charge le dictionnaire à partir d'un fichier JSON
   Future<void> loadDictionaryFromJson(Locale locale) async {
-    final String fileName = (locale.languageCode == 'fr')
-        ? 'dictionary_fr.json'
-        : 'dictionary_en.json';
+    final String fileName = (locale.languageCode == 'fr') ? 'dictionary_fr.json' : 'dictionary_en.json';
     final String filePath = 'assets/$fileName';
 
     // Charge le fichier JSON du dictionnaire basé sur le chemin déterminé
@@ -33,45 +31,47 @@ class WordLinkGameLogic {
   void _generateWordList() {
     final random = Random();
 
-    // Assurez-vous que le dictionnaire n'est pas vide
-    if (dictionary.isNotEmpty) {
-      // Filtre le dictionnaire pour les mots de moins de 4 caractères
-      final shortWords = dictionary.where((word) => word.length < 4).toList();
+    // Filtrer le dictionnaire pour obtenir uniquement les mots de moins de 3 lettres
+    List<String> shortWords = dictionary.where((word) => word.length < 4).toList();
 
-      // Vérifie s'il y a des mots courts disponibles
-      if (shortWords.isNotEmpty) {
-        // Choisissez aléatoirement l'un des mots courts comme mot de départ
-        startingWord = shortWords[random.nextInt(shortWords.length)];
+    if (shortWords.isNotEmpty) {
+      // Sélectionner aléatoirement un mot parmi les mots courts comme mot de départ
+      startingWord = shortWords[random.nextInt(shortWords.length)];
 
-        // Filtre le dictionnaire pour les mots qui ont 2 lettres ou plus de longueur que le mot de départ
-        final possibleEndingWords = dictionary
-            .where((word) => word.length >= startingWord.length + 2)
-            .toList();
+      // Initialiser currentWord avec startingWord
+      currentWord = startingWord;
 
-        // Vérifie s'il y a des mots de fin possibles
-        if (possibleEndingWords.isNotEmpty) {
-          // Choisissez aléatoirement l'un des mots de fin possibles
-          endingWord =
-              possibleEndingWords[random.nextInt(possibleEndingWords.length)];
-        } else {
-          // Gère le cas où aucun mot de fin valide n'est trouvé
-          endingWord =
-              startingWord; // Solution de repli ou à gérer différemment si nécessaire
-        }
-      } else {
-        // Gère le cas où aucun mot de départ valide n'est trouvé
-        startingWord =
-            ''; // Solution de repli ou initialiser à une valeur par défaut si nécessaire
-        endingWord =
-            ''; // Solution de repli ou initialiser à une valeur par défaut si nécessaire
-      }
+      // Utiliser la logique pour trouver un mot de fin approprié
+      // Note : Assurez-vous que findEndingWord ou une logique similaire est adaptée pour utiliser startingWord
+      // pour initier la recherche d'un mot de fin qui suit vos critères spécifiques.
+      findEndingWord();
     } else {
-      // Gère le cas où le dictionnaire est vide
+      // Gérer le cas où aucun mot court n'est disponible
+      print("Aucun mot de moins de 3 lettres trouvé dans le dictionnaire.");
       startingWord = '';
       endingWord = '';
+      currentWord = '';
+    }
+  }
+
+  void findEndingWord() {
+    String currentWord = startingWord;
+    List<String> path = [currentWord];
+
+    while (currentWord.length < startingWord.length + 3) {
+      List<String> neighbors = _getNeighbors(currentWord, dictionary);
+      if (neighbors.isEmpty) {
+        print("Aucun chemin possible pour prolonger le mot de départ");
+        return;
+      }
+
+      // Choisissez le premier voisin comme prochaine étape; vous pouvez rendre cela plus sophistiqué
+      currentWord = neighbors.first;
+      path.add(currentWord);
     }
 
-    currentWord = startingWord;
+    endingWord = currentWord;
+    print("Chemin trouvé: ${path.join(' -> ')}");
   }
 
   // Vérifie si le mot est valide
@@ -117,96 +117,96 @@ class WordLinkGameLogic {
         wordList.add(buildWordRow(placeholder));
       } else {
         // Si un mot deviné de cette longueur existe, ajoutez ce mot à la place.
-        String guessedWord =
-            guessedWords.firstWhere((word) => word.length == i);
+        String guessedWord = guessedWords.firstWhere((word) => word.length == i);
         wordList.add(buildWordRow(guessedWord));
       }
     }
   }
 
   // Vérifie s'il existe un chemin valide
+// Tente de trouver une chaîne de mots valide
   bool verifyPath() {
-    List<String> path = []; // Initialise la liste de chemin
-    bool foundPath =
-        _dfs(startingWord, endingWord, <String>{}, dictionary, path);
+    List<String> path = [startingWord]; // Initialise la liste de chemin avec le mot de départ
+    Set<String> visited = {startingWord}; // Ensemble pour suivre les mots visités
+
+    // Tente de trouver un chemin
+    bool foundPath = _dfs(startingWord, startingWord.length + 3, visited, dictionary, path);
+
     if (!foundPath) {
-      print("Aucun chemin valide trouvé de '$startingWord' à '$endingWord'.");
+      print("Aucun chemin valide trouvé à partir de '$startingWord'.");
+    } else {
+      // Mise à jour du mot de fin avec le dernier mot de la chaîne valide trouvée
+      endingWord = path.last;
+      print("Chemin valide trouvé : ${path.join(' -> ')}");
     }
+
     return foundPath;
   }
 
-  // Fonction d'aide DFS
-  bool _dfs(String current, String target, Set<String> visited,
-      List<String> dictionary, List<String> path) {
-    path.add(current); // Ajoute le mot actuel au chemin
-
-    if (current == target) {
-      print(
-          "Chemin valide trouvé : ${path.join(' -> ')}"); // Imprime le chemin valide
+  bool _dfs(String current, int targetLength, Set<String> visited, List<String> dictionary, List<String> path) {
+    if (current.length == targetLength) {
+      endingWord = path.last; // Assurez-vous que cette ligne est correcte selon votre logique.
       return true;
     }
 
-    visited.add(current);
+    List<String> neighbors = _getNeighbors(current, dictionary, visited).where((word) => word.length == current.length + 1).toList();
 
-    for (String nextWord in _getNeighbors(current, dictionary)) {
+    print("neighbors: ${neighbors}");
+    for (String nextWord in neighbors) {
       if (!visited.contains(nextWord)) {
-        List<String> newPath =
-            List.from(path); // Fait une copie du chemin actuel
-        if (_dfs(nextWord, target, visited, dictionary, newPath)) {
-          // Pas besoin de retirer le dernier mot du chemin ici, car nous faisons une copie du chemin pour chaque appel récursif
-          return true; // Trouve un chemin valide vers la cible
+        print("Exploring: " + nextWord); // Débogage
+        visited.add(nextWord);
+        path.add(nextWord);
+
+        if (_dfs(nextWord, targetLength, visited, dictionary, path)) {
+          return true; // Chemin valide trouvé
         }
+
+        // Si ce chemin ne mène pas à une solution, backtrack
+        visited.remove(nextWord);
+        path.removeLast();
       }
     }
 
-    path.removeLast(); // Retour en arrière : retire le mot actuel du chemin si aucun chemin valide n'est trouvé
-    return false; // Aucun chemin valide trouvé à partir de ce mot
+    return false;
   }
 
-  // Génère tous les voisins possibles d'un mot (mots qui peuvent être atteints en ajoutant une lettre)
-  List<String> _getNeighbors(String word, List<String> dictionary) {
+  List<String> _getNeighbors(String word, List<String> dictionary, [Set<String>? visited]) {
     Set<String> neighbors = HashSet();
+    visited ??= {};
 
-    for (int charCode = 'a'.codeUnitAt(0);
-        charCode <= 'z'.codeUnitAt(0);
-        charCode++) {
-      // Ajoute une lettre à chaque position possible avant de générer des permutations
-      for (int i = 0; i <= word.length; i++) {
-        String newWord = word.substring(0, i) +
-            String.fromCharCode(charCode) +
-            word.substring(i);
-        Set<String> permutations = getPermutations(newWord);
+    // Pour chaque mot dans le dictionnaire...
+    for (String dictWord in dictionary) {
+      if (!visited.contains(dictWord) && dictWord.length == word.length + 1) {
+        // Compter combien de fois chaque lettre apparaît dans les deux mots
+        Map<String, int> wordCount = {}, dictWordCount = {};
+        for (int i = 0; i < word.length; i++) {
+          wordCount[word[i]] = (wordCount[word[i]] ?? 0) + 1;
+        }
+        for (int i = 0; i < dictWord.length; i++) {
+          dictWordCount[dictWord[i]] = (dictWordCount[dictWord[i]] ?? 0) + 1;
+        }
 
-        // Vérifie chaque permutation par rapport au dictionnaire
-        for (String permutedWord in permutations) {
-          if (dictionary.contains(permutedWord) &&
-              permutedWord.length == word.length + 1) {
-            neighbors.add(permutedWord);
+        // Vérifier si en retirant une lettre de dictWord on peut obtenir word
+        bool isValidNeighbor = true;
+        for (String letter in dictWordCount.keys) {
+          if (dictWordCount[letter]! > (wordCount[letter] ?? 0)) {
+            if (dictWordCount[letter]! - (wordCount[letter] ?? 0) > 1) {
+              isValidNeighbor = false;
+              break;
+            }
+          } else if (wordCount[letter] == null) {
+            isValidNeighbor = false;
+            break;
           }
+        }
+
+        if (isValidNeighbor) {
+          neighbors.add(dictWord);
         }
       }
     }
 
     return neighbors.toList();
-  }
-
-  // Génère les permutations d'une chaîne
-  Set<String> getPermutations(String str) {
-    Set<String> permutations = HashSet();
-
-    void _permute(String prefix, String remaining) {
-      int n = remaining.length;
-      if (n == 0) {
-        permutations.add(prefix);
-      } else {
-        for (int i = 0; i < n; i++) {
-          _permute(prefix + remaining[i],
-              remaining.substring(0, i) + remaining.substring(i + 1, n));
-        }
-      }
-    }
-
-    _permute("", str);
-    return permutations;
   }
 }
