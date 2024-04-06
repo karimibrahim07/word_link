@@ -11,5 +11,8 @@
     "timesUp": "Time is up!",
     "ok": "OK",
     "congratulations" : "Congratulations",
-    "youWon": "You have won the game!"
+    "youWon": "You have won the game!",
+    "startGameExternal": "Start Game (External source)",
+    "errorTitle": "Error",
+    "errorMessage": "An error occurred while loading data. Please try again later."
 }

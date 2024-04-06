@@ -1,8 +1,10 @@
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:word_link/components/game_logic.dart';
 import 'package:word_link/components/game_timer.dart';
 import 'package:word_link/components/game_win.dart';
 import 'package:word_link/components/game_over.dart';
+import 'package:word_link/main_menu.dart';
 import 'package:word_link/widgets/build_word_row.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
@@ -16,6 +18,7 @@ class WordLinkGameWidget extends StatefulWidget {
 
 class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
   late GameTimer _gameTimer;
+  late ConfettiController _confettiController;
   int _secondsRemaining = 120; // 2 minutes
   late WordLinkGameLogic _gameLogic;
   final TextEditingController _userInputController = TextEditingController();
@@ -30,22 +33,47 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadGame();
     });
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 10));
   }
 
   Future<void> _loadGame() async {
-    print(Localizations.localeOf(context));
-    await _gameLogic.loadDictionaryFromJson(Localizations.localeOf(context));
-    _gameLogic.buildEmptyWords();
-    print(_gameLogic.verifyPath());
-    setState(() {
-      _isLoading = false;
-    });
-    _gameTimer.start(_secondsRemaining);
+    try {
+      // Retrieve arguments passed to the route
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final loadDataMethod = args?['loadData'] ?? 'json'; // Default to 'json'
+
+      print("Load data method: $loadDataMethod");
+
+      if (loadDataMethod == 'api') {
+        // Attempt to load data from an API
+        await _gameLogic
+            .loadDictionaryFromAPI(); // Make sure this method is properly implemented
+      } else {
+        // Fallback to loading data from a local JSON file
+        print(Localizations.localeOf(context));
+        await _gameLogic
+            .loadDictionaryFromJson(Localizations.localeOf(context));
+      }
+
+      _gameLogic.buildEmptyWords();
+      if (!_gameLogic.verifyPath()) throw Exception("No valid path found.");
+
+      setState(() {
+        _isLoading = false;
+      });
+      _gameTimer.start(_secondsRemaining);
+    } catch (e) {
+      // If an error occurs, show an error dialog
+      _showErrorDialog();
+    }
   }
 
   @override
   void dispose() {
     _gameTimer.stop();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -68,11 +96,36 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
   }
 
   void _showWinDialog() {
+    _confettiController.play();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return GameWinDialog(onLocaleChange: widget.onLocaleChange);
       },
+    );
+  }
+
+  void _showErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.errorTitle),
+        content: Text(AppLocalizations.of(context)!.errorMessage),
+        actions: [
+          TextButton(
+            onPressed: () {
+            Navigator.pop(context);
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) =>
+                        MainMenu(onLocaleChange: widget.onLocaleChange)));
+          }, // Closes the dialog
+            child: Text(AppLocalizations.of(context)!.ok),
+          ),
+        ],
+      ),
     );
   }
 
@@ -122,11 +175,6 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
               buildWordRow(_gameLogic.startingWord),
               ..._gameLogic.wordList,
               buildWordRow(_gameLogic.endingWord),
-              Text(
-                '${AppLocalizations.of(context)!.guessedWords}: ${_gameLogic.guessedWords.join(", ")}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16.0),
-              ),
               const SizedBox(height: 20.0),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -152,6 +200,22 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
                     child: Text(AppLocalizations.of(context)!.submit),
                   ),
                 ],
+              ),
+              Align(
+                alignment: Alignment.topCenter,
+                child: ConfettiWidget(
+                  confettiController: _confettiController,
+                  blastDirectionality: BlastDirectionality
+                      .explosive, // explose dans toutes les directions
+                  shouldLoop: false, // La répétition est désactivée
+                  colors: const [
+                    Colors.green,
+                    Colors.blue,
+                    Colors.pink,
+                    Colors.orange,
+                    Colors.purple,
+                  ], // Les couleurs des confettis
+                ),
               ),
             ],
           ),

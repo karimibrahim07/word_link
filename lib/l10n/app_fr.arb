@@ -11,5 +11,9 @@
     "timesUp": "Le temps est écoulé !",
     "ok": "OK",
     "congratulations" : "Félicitations",
-    "youWon": "Vous avez gagné le jeu !"
+    "youWon": "Vous avez gagné le jeu !",
+    "startGameExternal": "Commencer le Jeu (Source externe)",
+    "errorTitle": "Erreur",
+    "errorMessage": "Une erreur s'est produite lors du chargement des données. Veuillez réessayer plus tard."
+  
 }

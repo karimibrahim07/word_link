@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:word_link/widgets/build_word_row.dart';
+import 'package:http/http.dart' as http;
 
 class WordLinkGameLogic {
   late String startingWord = ''; // Mot de départ
@@ -13,45 +14,74 @@ class WordLinkGameLogic {
   final Set<String> guessedWords = {}; // Mots devinés
   late List<String> dictionary; // Dictionnaire
   late List<Widget> wordList = []; // Liste des mots
+  final String _apiBaseUrl = "http://localhost:3000";
 
   // Charge le dictionnaire à partir d'un fichier JSON
   Future<void> loadDictionaryFromJson(Locale locale) async {
-    final String fileName = (locale.languageCode == 'fr') ? 'dictionary_fr.json' : 'dictionary_en.json';
+    final String fileName = (locale.languageCode == 'fr')
+        ? 'dictionary_fr.json'
+        : 'dictionary_en.json';
     final String filePath = 'assets/$fileName';
 
     // Charge le fichier JSON du dictionnaire basé sur le chemin déterminé
     final String response = await rootBundle.loadString(filePath);
-    final data = json.decode(response) as Map<String, dynamic>;
-    dictionary = List<String>.from(data['words']);
+    // Ajustement ici: décode directement le JSON en tant que List<String> car le fichier a changé de format
+    final List<dynamic> data = json.decode(response);
+    dictionary = data.cast<
+        String>(); // Assurez-vous que tous les éléments sont bien des chaînes de caractères
 
     // Après le chargement, vous pouvez maintenant générer la liste de mots basée sur le dictionnaire chargé
     _generateWordList();
   }
 
+  Future<void> loadDictionaryFromAPI() async {
+    try {
+      final response = await http.get(Uri.parse('$_apiBaseUrl/dictionary'));
+
+      if (response.statusCode == 200) {
+        // Assuming the JSON structure is a direct list of words
+        final List<dynamic> data = json.decode(response.body);
+        dictionary = data.cast<String>();
+        _generateWordList();
+      } else {
+        // Handle server errors or invalid responses
+        print(
+            "Failed to load dictionary from API. Status code: ${response.statusCode}");
+        throw Exception("Failed to load dictionary from API.");
+      }
+    } catch (e) {
+      // Handle any errors that occur during fetch
+      print("Error loading dictionary from API: $e");
+      throw Exception("Error loading dictionary from API: $e");
+    }
+  }
+
   void _generateWordList() {
     final random = Random();
 
-    // Filtrer le dictionnaire pour obtenir uniquement les mots de moins de 3 lettres
-    List<String> shortWords = dictionary.where((word) => word.length < 4).toList();
+    // Mélange le dictionnaire pour obtenir un ordre aléatoire des mots
+    List<String> shortWords =
+        dictionary.where((word) => word.length < 4).toList();
+    shortWords.shuffle(random);
 
-    if (shortWords.isNotEmpty) {
-      // Sélectionner aléatoirement un mot parmi les mots courts comme mot de départ
-      startingWord = shortWords[random.nextInt(shortWords.length)];
-
-      // Initialiser currentWord avec startingWord
+    // Essaye chaque mot court comme mot de départ jusqu'à ce qu'un chemin soit trouvé
+    for (String word in shortWords) {
+      startingWord = word;
       currentWord = startingWord;
 
-      // Utiliser la logique pour trouver un mot de fin approprié
-      // Note : Assurez-vous que findEndingWord ou une logique similaire est adaptée pour utiliser startingWord
-      // pour initier la recherche d'un mot de fin qui suit vos critères spécifiques.
-      findEndingWord();
-    } else {
-      // Gérer le cas où aucun mot court n'est disponible
-      print("Aucun mot de moins de 3 lettres trouvé dans le dictionnaire.");
-      startingWord = '';
-      endingWord = '';
-      currentWord = '';
+      // Utilise la logique pour essayer de trouver un mot de fin approprié
+      if (verifyPath()) {
+        print("Chemin trouvé avec le mot de départ '$startingWord'.");
+        return; // Sort de la boucle et de la méthode si un chemin est trouvé
+      }
     }
+
+    // Si la boucle se termine sans trouver un chemin
+    print(
+        "Aucun chemin valide trouvé pour les mots de moins de 4 lettres dans le dictionnaire.");
+    startingWord = '';
+    endingWord = '';
+    currentWord = '';
   }
 
   void findEndingWord() {
@@ -117,7 +147,8 @@ class WordLinkGameLogic {
         wordList.add(buildWordRow(placeholder));
       } else {
         // Si un mot deviné de cette longueur existe, ajoutez ce mot à la place.
-        String guessedWord = guessedWords.firstWhere((word) => word.length == i);
+        String guessedWord =
+            guessedWords.firstWhere((word) => word.length == i);
         wordList.add(buildWordRow(guessedWord));
       }
     }
@@ -126,11 +157,16 @@ class WordLinkGameLogic {
   // Vérifie s'il existe un chemin valide
 // Tente de trouver une chaîne de mots valide
   bool verifyPath() {
-    List<String> path = [startingWord]; // Initialise la liste de chemin avec le mot de départ
-    Set<String> visited = {startingWord}; // Ensemble pour suivre les mots visités
+    List<String> path = [
+      startingWord
+    ]; // Initialise la liste de chemin avec le mot de départ
+    Set<String> visited = {
+      startingWord
+    }; // Ensemble pour suivre les mots visités
 
     // Tente de trouver un chemin
-    bool foundPath = _dfs(startingWord, startingWord.length + 3, visited, dictionary, path);
+    bool foundPath =
+        _dfs(startingWord, startingWord.length + 3, visited, dictionary, path);
 
     if (!foundPath) {
       print("Aucun chemin valide trouvé à partir de '$startingWord'.");
@@ -143,18 +179,20 @@ class WordLinkGameLogic {
     return foundPath;
   }
 
-  bool _dfs(String current, int targetLength, Set<String> visited, List<String> dictionary, List<String> path) {
+  bool _dfs(String current, int targetLength, Set<String> visited,
+      List<String> dictionary, List<String> path) {
     if (current.length == targetLength) {
-      endingWord = path.last; // Assurez-vous que cette ligne est correcte selon votre logique.
+      endingWord = path
+          .last; // Assurez-vous que cette ligne est correcte selon votre logique.
       return true;
     }
 
-    List<String> neighbors = _getNeighbors(current, dictionary, visited).where((word) => word.length == current.length + 1).toList();
+    List<String> neighbors = _getNeighbors(current, dictionary, visited)
+        .where((word) => word.length == current.length + 1)
+        .toList();
 
-    print("neighbors: ${neighbors}");
     for (String nextWord in neighbors) {
       if (!visited.contains(nextWord)) {
-        print("Exploring: " + nextWord); // Débogage
         visited.add(nextWord);
         path.add(nextWord);
 
@@ -171,36 +209,28 @@ class WordLinkGameLogic {
     return false;
   }
 
-  List<String> _getNeighbors(String word, List<String> dictionary, [Set<String>? visited]) {
+  List<String> _getNeighbors(String word, List<String> dictionary,
+      [Set<String>? visited]) {
     Set<String> neighbors = HashSet();
     visited ??= {};
 
-    // Pour chaque mot dans le dictionnaire...
     for (String dictWord in dictionary) {
+      // Continue seulement si dictWord n'a pas été visité et a exactement une lettre de plus que word
       if (!visited.contains(dictWord) && dictWord.length == word.length + 1) {
-        // Compter combien de fois chaque lettre apparaît dans les deux mots
-        Map<String, int> wordCount = {}, dictWordCount = {};
-        for (int i = 0; i < word.length; i++) {
-          wordCount[word[i]] = (wordCount[word[i]] ?? 0) + 1;
-        }
-        for (int i = 0; i < dictWord.length; i++) {
-          dictWordCount[dictWord[i]] = (dictWordCount[dictWord[i]] ?? 0) + 1;
-        }
+        Map<String, int> wordLetterCounts = _getLetterCounts(word);
+        Map<String, int> dictWordLetterCounts = _getLetterCounts(dictWord);
 
-        // Vérifier si en retirant une lettre de dictWord on peut obtenir word
         bool isValidNeighbor = true;
-        for (String letter in dictWordCount.keys) {
-          if (dictWordCount[letter]! > (wordCount[letter] ?? 0)) {
-            if (dictWordCount[letter]! - (wordCount[letter] ?? 0) > 1) {
-              isValidNeighbor = false;
-              break;
-            }
-          } else if (wordCount[letter] == null) {
+        // Pour chaque lettre dans word, vérifiez que dictWord a la même quantité ou une de plus
+        for (String letter in wordLetterCounts.keys) {
+          if (dictWordLetterCounts[letter] == null ||
+              dictWordLetterCounts[letter]! < wordLetterCounts[letter]!) {
             isValidNeighbor = false;
             break;
           }
         }
 
+        // Si dictWord est un voisin valide, ajoutez-le aux voisins
         if (isValidNeighbor) {
           neighbors.add(dictWord);
         }
@@ -208,5 +238,13 @@ class WordLinkGameLogic {
     }
 
     return neighbors.toList();
+  }
+
+  Map<String, int> _getLetterCounts(String word) {
+    Map<String, int> letterCounts = {};
+    for (var letter in word.split('')) {
+      letterCounts[letter] = (letterCounts[letter] ?? 0) + 1;
+    }
+    return letterCounts;
   }
 }
