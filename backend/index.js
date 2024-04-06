@@ -5,20 +5,17 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware to serve static files
 app.use('/static', express.static('public'));
 
 app.get('/dictionary', (req, res) => {
     const dictionaryPath = path.join(__dirname, 'dictionary_en.json');
-    
-    // Check if the dictionary file exists
+
     fs.access(dictionaryPath, fs.constants.F_OK, (err) => {
         if (err) {
             console.error("Dictionary file not found.");
             return res.status(404).send('Dictionary file not found.');
         }
         
-        // Read and send the dictionary file
         fs.readFile(dictionaryPath, 'utf8', (err, data) => {
             if (err) {
                 console.error("Error reading dictionary file:", err);

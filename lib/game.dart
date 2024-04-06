@@ -42,17 +42,14 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
       // Retrieve arguments passed to the route
       final args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      final loadDataMethod = args?['loadData'] ?? 'json'; // Default to 'json'
+      final loadDataMethod = args?['loadData'] ?? 'json';
 
       print("Load data method: $loadDataMethod");
 
       if (loadDataMethod == 'api') {
-        // Attempt to load data from an API
         await _gameLogic
-            .loadDictionaryFromAPI(); // Make sure this method is properly implemented
+            .loadDictionaryFromAPI();
       } else {
-        // Fallback to loading data from a local JSON file
-        print(Localizations.localeOf(context));
         await _gameLogic
             .loadDictionaryFromJson(Localizations.localeOf(context));
       }
@@ -65,7 +62,6 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
       });
       _gameTimer.start(_secondsRemaining);
     } catch (e) {
-      // If an error occurs, show an error dialog
       _showErrorDialog();
     }
   }
@@ -121,7 +117,7 @@ class _WordLinkGameWidgetState extends State<WordLinkGameWidget> {
                 MaterialPageRoute(
                     builder: (context) =>
                         MainMenu(onLocaleChange: widget.onLocaleChange)));
-          }, // Closes the dialog
+          },
             child: Text(AppLocalizations.of(context)!.ok),
           ),
         ],
