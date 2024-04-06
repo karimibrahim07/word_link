@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,24 @@ class WordLinkGameLogic {
   final Set<String> guessedWords = {}; // Mots devinés
   late List<String> dictionary; // Dictionnaire
   late List<Widget> wordList = []; // Liste des mots
-  final String _apiBaseUrl = "http://localhost:3000";
+  late final String _apiBaseUrl = _determineAPIBaseUrl();
+  
+  String _determineAPIBaseUrl() {
+    // Default to localhost for development
+    String baseUrl = "http://localhost:3000";
+
+    // Check if running on Android and adjust the URL accordingly
+    try {
+      if (Platform.isAndroid) {
+        baseUrl = "http://10.0.2.2:3000";
+      }
+    } catch (e) {
+      // Platform checks might fail on non-supported platforms (e.g., web),
+      // so it's safe to catch and ignore the error.
+    }
+
+    return baseUrl;
+  }
 
   // Charge le dictionnaire à partir d'un fichier JSON
   Future<void> loadDictionaryFromJson(Locale locale) async {
@@ -24,6 +42,7 @@ class WordLinkGameLogic {
     final String filePath = 'assets/$fileName';
 
     // Charge le fichier JSON du dictionnaire basé sur le chemin déterminé
+
     final String response = await rootBundle.loadString(filePath);
     // Ajustement ici: décode directement le JSON en tant que List<String> car le fichier a changé de format
     final List<dynamic> data = json.decode(response);
